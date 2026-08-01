@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ClientView } from "./components/ClientView";
 import { BarberView } from "./components/BarberView";
 import { LoginScreen } from "./components/LoginScreen";
-import { loadProfile, clearProfile, incrementVisits } from "./auth";
+import { clearProfile, incrementVisits } from "./auth";
 import type {
   Service,
   Barber,
@@ -177,11 +177,17 @@ export default function App() {
   const [view, setView] = useState<ViewMode>("client");
   const [appointments, setAppointments] =
     useState<Appointment[]>(INITIAL_APPOINTMENTS);
-  const [client, setClient] = useState<ClientProfile | null>(() =>
-    loadProfile(),
-  );
+  // Sempre inicia deslogado, para abrir na tela de login a cada carregamento.
+  // Se no futuro quiser voltar a "lembrar" o cliente entre sessões,
+  // troque para: useState<ClientProfile | null>(() => loadProfile())
+  const [client, setClient] = useState<ClientProfile | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const prevPositionRef = useRef<number | null>(null);
+
+  // Garante que qualquer sessão anterior salva no navegador seja limpa
+  useEffect(() => {
+    clearProfile();
+  }, []);
 
   // Watch queue position and fire notification when client becomes next
   useEffect(() => {
