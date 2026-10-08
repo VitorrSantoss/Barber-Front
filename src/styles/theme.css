@@ -1,85 +1,77 @@
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * BarberHouse — barbearia de bairro.
+ * Papel, tinta, vermelho do barber pole e azul marinho. Sem dourado, sem glow.
+ */
 :root {
   --font-size: 16px;
-  --background: #0a0a0a;
-  --foreground: #f0ece0;
-  --card: #141414;
-  --card-foreground: #f0ece0;
-  --popover: #1a1a1a;
-  --popover-foreground: #f0ece0;
-  --primary: #c9a84c;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1e1e1e;
-  --secondary-foreground: #f0ece0;
-  --muted: #1e1e1e;
-  --muted-foreground: #888070;
-  --accent: #c9a84c;
-  --accent-foreground: #0a0a0a;
-  --destructive: #c0392b;
-  --destructive-foreground: #f0ece0;
-  --border: rgba(201, 168, 76, 0.15);
-  --input: transparent;
-  --input-background: #1e1e1e;
-  --switch-background: #333;
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --ring: #c9a84c;
-  --chart-1: #c9a84c;
-  --chart-2: #a07830;
-  --chart-3: #6b5020;
-  --chart-4: #e8d080;
-  --chart-5: #f0ece0;
-  --radius: 0.5rem;
-  --sidebar: #0f0f0f;
-  --sidebar-foreground: #f0ece0;
-  --sidebar-primary: #c9a84c;
-  --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #1e1e1e;
-  --sidebar-accent-foreground: #f0ece0;
-  --sidebar-border: rgba(201, 168, 76, 0.15);
-  --sidebar-ring: #c9a84c;
-}
 
-.dark {
-  --background: #0a0a0a;
-  --foreground: #f0ece0;
-  --card: #141414;
-  --card-foreground: #f0ece0;
-  --popover: #1a1a1a;
-  --popover-foreground: #f0ece0;
-  --primary: #c9a84c;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1e1e1e;
-  --secondary-foreground: #f0ece0;
-  --muted: #1e1e1e;
-  --muted-foreground: #888070;
-  --accent: #c9a84c;
-  --accent-foreground: #0a0a0a;
-  --destructive: #c0392b;
-  --destructive-foreground: #f0ece0;
-  --border: rgba(201, 168, 76, 0.15);
-  --input: transparent;
-  --input-background: #1e1e1e;
-  --ring: #c9a84c;
+  /* Paleta da casa */
+  --paper: #f3ece0;
+  --paper-2: #e9dfcd;
+  --ticket: #fbf7ef;
+  --ink: #1a1714;
+  --ink-soft: #5a5047;
+  --pole-red: #b3261e;
+  --pole-red-dark: #8f1d17;
+  --navy: #1f3a5f;
+  --rule: rgba(26, 23, 20, 0.35);
+
+  /* Mapeamento para os nomes usados pelo components/ui */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--ticket);
+  --card-foreground: var(--ink);
+  --popover: var(--ticket);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: var(--paper-2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-2);
+  --muted-foreground: var(--ink-soft);
+  --accent: var(--pole-red);
+  --accent-foreground: var(--paper);
+  --destructive: var(--pole-red);
+  --destructive-foreground: var(--paper);
+  --border: var(--ink);
+  --input: var(--ink);
+  --input-background: var(--ticket);
+  --switch-background: #cfc4b0;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: #c9a84c;
-  --chart-2: #a07830;
-  --chart-3: #6b5020;
-  --chart-4: #e8d080;
-  --chart-5: #f0ece0;
-  --sidebar: #0f0f0f;
-  --sidebar-foreground: #f0ece0;
-  --sidebar-primary: #c9a84c;
-  --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #1e1e1e;
-  --sidebar-accent-foreground: #f0ece0;
-  --sidebar-border: rgba(201, 168, 76, 0.15);
-  --sidebar-ring: #c9a84c;
+  --ring: var(--navy);
+  --chart-1: var(--pole-red);
+  --chart-2: var(--navy);
+  --chart-3: var(--ink);
+  --chart-4: var(--ink-soft);
+  --chart-5: var(--paper-2);
+  --radius: 3px;
+  --sidebar: var(--paper-2);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--paper);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--ink);
+  --sidebar-ring: var(--navy);
 }
 
 @theme inline {
+  --font-display: "Alfa Slab One", "Rockwell", Georgia, serif;
+  --font-sans: "Work Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ticket: var(--ticket);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-pole-red: var(--pole-red);
+  --color-pole-red-dark: var(--pole-red-dark);
+  --color-navy: var(--navy);
+  --color-rule: var(--rule);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -106,10 +98,10 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 2px;
+  --radius-md: var(--radius);
+  --radius-lg: 4px;
+  --radius-xl: 4px;
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -122,44 +114,40 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
-
-  body {
-    @apply bg-background text-foreground;
-  }
-
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
 
   html {
     font-size: var(--font-size);
   }
 
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1.15;
+  }
+
   h1 {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: var(--text-3xl);
   }
 
   h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: var(--text-2xl);
   }
 
   h3 {
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: var(--text-xl);
   }
 
   h4 {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: var(--text-lg);
   }
 
   label {
@@ -172,11 +160,99 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
   }
 
   input {
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--navy);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Botões */
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-sm border-2 border-ink px-5 py-2 font-semibold transition-colors;
+  }
+  .btn-ink {
+    @apply bg-ink text-paper hover:border-navy hover:bg-navy;
+  }
+  .btn-red {
+    @apply border-pole-red bg-pole-red text-paper hover:border-pole-red-dark hover:bg-pole-red-dark;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-ink hover:bg-paper-2;
+  }
+  .btn-text {
+    @apply inline-flex min-h-11 items-center gap-1 rounded-sm px-2 font-semibold underline decoration-2 underline-offset-4 transition-colors hover:bg-paper-2;
+  }
+
+  /* Listras do barber pole: usar com parcimônia */
+  .pole-stripes {
+    background-color: var(--paper);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--pole-red) 0 10px,
+      var(--paper) 10px 16px,
+      var(--navy) 16px 26px,
+      var(--paper) 26px 32px
+    );
+  }
+
+  /* Linha pontilhada da tabela de preços */
+  .leader {
+    flex: 1 1 1rem;
+    min-width: 1rem;
+    border-bottom: 2px dotted var(--rule);
+    transform: translateY(-0.3em);
+  }
+
+  /* Senha de papel com picote serrilhado em cima e embaixo */
+  .ticket {
+    --notch: 7px;
+    --notch-gap: 20px;
+    background: var(--ticket);
+    border-inline: 2px solid var(--ink);
+    -webkit-mask:
+      radial-gradient(circle var(--notch) at 50% 0, transparent calc(var(--notch) - 0.5px), #000 var(--notch)) top / var(--notch-gap) 51% repeat-x,
+      radial-gradient(circle var(--notch) at 50% 100%, transparent calc(var(--notch) - 0.5px), #000 var(--notch)) bottom / var(--notch-gap) 51% repeat-x;
+    mask:
+      radial-gradient(circle var(--notch) at 50% 0, transparent calc(var(--notch) - 0.5px), #000 var(--notch)) top / var(--notch-gap) 51% repeat-x,
+      radial-gradient(circle var(--notch) at 50% 100%, transparent calc(var(--notch) - 0.5px), #000 var(--notch)) bottom / var(--notch-gap) 51% repeat-x;
+  }
+  .ticket-sm {
+    --notch: 5px;
+    --notch-gap: 14px;
+  }
+
+  /* Horário ocupado: riscado na diagonal, como agenda de papel */
+  .slot-taken {
+    background-image: linear-gradient(
+      to top right,
+      transparent calc(50% - 1px),
+      var(--ink-soft) calc(50% - 1px),
+      var(--ink-soft) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
   }
 }
