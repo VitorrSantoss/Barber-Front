@@ -38,4 +38,12 @@ export interface Appointment {
   barberName: string;
   time: string;
   status: "aguardando" | "em_atendimento" | "concluido" | "cancelado";
+  /** Id do cliente na API (identifica a pessoa, já que nomes podem repetir). */
+  clientId?: string;
+  /** dataHora da API, ISO local sem fuso (ex: 2026-10-05T14:30:00). */
+  dateTime?: string;
+  /** horaChegada da API: define a ordem real da fila. */
+  arrivedAt?: string;
+  /** Horário marcado que ainda não entrou na fila (AGENDADO na API). */
+  scheduled?: boolean;
 }
