@@ -1,10 +1,20 @@
-import { useState, useEffect, useRef } from "react";
-import { Scissors, Users, LogOut, Bell } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence, MotionConfig } from "motion/react";
 import { ClientView } from "./components/ClientView";
 import { BarberView } from "./components/BarberView";
 import { LoginScreen } from "./components/LoginScreen";
-import { clearProfile, incrementVisits } from "./auth";
+import { BarberLogin } from "./components/BarberLogin";
+import { Wordmark } from "./components/Brand";
+import { clearProfile } from "./auth";
+import {
+  atualizarStatus,
+  criarAgendamento,
+  errorMessage,
+  listarAgendamentos,
+  listarBarbeiros,
+  listarServicos,
+} from "./api";
+import { compareQueue, isActive, localDate, toDateTime } from "./queue";
 import type {
   Service,
   Barber,
@@ -13,84 +23,7 @@ import type {
   ClientProfile,
 } from "./types";
 
-const SERVICES: Service[] = [
-  {
-    id: "s1",
-    name: "Corte Clássico",
-    price: 40,
-    duration: 30,
-    description: "Tesoura e máquina, acabamento perfeito",
-    emoji: "✂️",
-  },
-  {
-    id: "s2",
-    name: "Corte + Barba",
-    price: 65,
-    duration: 50,
-    description: "Combo completo com toalha quente",
-    emoji: "🧔",
-  },
-  {
-    id: "s3",
-    name: "Degradê",
-    price: 50,
-    duration: 40,
-    description: "Fade americano ou skin fade",
-    emoji: "💈",
-  },
-  {
-    id: "s4",
-    name: "Barba Completa",
-    price: 35,
-    duration: 30,
-    description: "Navalha, modelagem e hidratação",
-    emoji: "🪒",
-  },
-  {
-    id: "s5",
-    name: "Pigmentação",
-    price: 80,
-    duration: 60,
-    description: "Cobertura de falhas na barba",
-    emoji: "🎨",
-  },
-  {
-    id: "s6",
-    name: "Relaxamento",
-    price: 70,
-    duration: 50,
-    description: "Alisamento suave dos fios",
-    emoji: "💆",
-  },
-];
-
-const BARBERS: Barber[] = [
-  {
-    id: "b1",
-    name: "Rafael Mota",
-    specialty: "Degradê & Skin Fade",
-    rating: 4.9,
-    reviews: 312,
-    avatar: "✂️",
-  },
-  {
-    id: "b2",
-    name: "Diego Santos",
-    specialty: "Barba & Navalha",
-    rating: 4.8,
-    reviews: 245,
-    avatar: "🧔",
-  },
-  {
-    id: "b3",
-    name: "Lucas Andrade",
-    specialty: "Corte Clássico",
-    rating: 4.7,
-    reviews: 189,
-    avatar: "💈",
-  },
-];
-
+// A API não tem conceito de grade de horários: o expediente fica aqui.
 const TIME_SLOTS: TimeSlot[] = [
   { id: "t1", time: "08:00" },
   { id: "t2", time: "08:30" },
@@ -112,75 +45,40 @@ const TIME_SLOTS: TimeSlot[] = [
   { id: "t18", time: "18:30" },
 ];
 
-const INITIAL_APPOINTMENTS: Appointment[] = [
-  {
-    id: "a1",
-    clientName: "Carlos Oliveira",
-    serviceId: "s1",
-    serviceName: "Corte Clássico",
-    barberId: "b1",
-    barberName: "Rafael Mota",
-    time: "08:00",
-    status: "em_atendimento",
-  },
-  {
-    id: "a2",
-    clientName: "Thiago Lima",
-    serviceId: "s3",
-    serviceName: "Degradê",
-    barberId: "b1",
-    barberName: "Rafael Mota",
-    time: "08:30",
-    status: "aguardando",
-  },
-  {
-    id: "a3",
-    clientName: "Marcos Pereira",
-    serviceId: "s2",
-    serviceName: "Corte + Barba",
-    barberId: "b2",
-    barberName: "Diego Santos",
-    time: "09:00",
-    status: "aguardando",
-  },
-  {
-    id: "a4",
-    clientName: "André Costa",
-    serviceId: "s4",
-    serviceName: "Barba Completa",
-    barberId: "b3",
-    barberName: "Lucas Andrade",
-    time: "09:30",
-    status: "aguardando",
-  },
-];
+// Intervalo da atualização automática da fila (a API também tem WebSocket,
+// mas o polling dispensa dependência nova e basta para esta tela).
+const POLL_MS = 5000;
 
 type ViewMode = "client" | "barber";
+type LoadState = "loading" | "ready" | "error";
 
 function getQueuePosition(
-  clientName: string,
+  clientId: string,
   barberId: string,
   appointments: Appointment[],
 ): number | null {
   const queue = appointments
-    .filter(
-      (a) =>
-        a.barberId === barberId &&
-        (a.status === "aguardando" || a.status === "em_atendimento"),
-    )
-    .sort((a, b) => a.time.localeCompare(b.time));
-  const idx = queue.findIndex((a) => a.clientName === clientName);
+    .filter((a) => a.barberId === barberId && isActive(a))
+    .sort(compareQueue);
+  const idx = queue.findIndex((a) => a.clientId === clientId);
   return idx === -1 ? null : idx + 1;
 }
 
 export default function App() {
   const [view, setView] = useState<ViewMode>("client");
-  const [appointments, setAppointments] =
-    useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadError, setLoadError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
   // Sempre inicia deslogado, para abrir na tela de login a cada carregamento.
   // Se no futuro quiser voltar a "lembrar" o cliente entre sessões,
   // troque para: useState<ClientProfile | null>(() => loadProfile())
   const [client, setClient] = useState<ClientProfile | null>(null);
+  // Barbeiro autenticado pela senha de 6 dígitos (só em memória, como o cliente).
+  const [barber, setBarber] = useState<Barber | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const prevPositionRef = useRef<number | null>(null);
 
@@ -189,21 +87,51 @@ export default function App() {
     clearProfile();
   }, []);
 
+  const refreshAppointments = useCallback(async () => {
+    try {
+      setAppointments(await listarAgendamentos());
+    } catch {
+      // Falha momentânea de rede: mantém a última fila e tenta no próximo ciclo.
+    }
+  }, []);
+
+  // Carga inicial (barbeiros, serviços, fila) + atualização periódica da fila
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listarBarbeiros(), listarServicos(), listarAgendamentos()])
+      .then(([b, s, a]) => {
+        if (cancelled) return;
+        setBarbers(b);
+        setServices(s);
+        setAppointments(a);
+        setLoadState("ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(errorMessage(err));
+        setLoadState("error");
+      });
+
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") void refreshAppointments();
+    }, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [refreshAppointments, reloadKey]);
+
   // Watch queue position and fire notification when client becomes next
   useEffect(() => {
     if (!client) return;
 
-    const myAppt = appointments.find(
-      (a) =>
-        a.clientName === client.name &&
-        (a.status === "aguardando" || a.status === "em_atendimento"),
-    );
+    const myAppt = appointments.find((a) => a.clientId === client.id && isActive(a));
     if (!myAppt) {
       prevPositionRef.current = null;
       return;
     }
 
-    const pos = getQueuePosition(client.name, myAppt.barberId, appointments);
+    const pos = getQueuePosition(client.id, myAppt.barberId, appointments);
 
     if (
       pos === 1 &&
@@ -215,11 +143,11 @@ export default function App() {
       setNotification(msg);
       // Browser notification if permission granted
       if (Notification.permission === "granted") {
-        new Notification("✂️ BarberHouse", { body: msg, icon: "/favicon.ico" });
+        new Notification("BarberHouse", { body: msg, icon: "/favicon.svg" });
       } else if (Notification.permission !== "denied") {
         Notification.requestPermission().then((perm) => {
           if (perm === "granted")
-            new Notification("✂️ BarberHouse", { body: msg });
+            new Notification("BarberHouse", { body: msg, icon: "/favicon.svg" });
         });
       }
     }
@@ -236,245 +164,164 @@ export default function App() {
     prevPositionRef.current = null;
   };
 
-  const handleBook = (data: Omit<Appointment, "id" | "status">) => {
-    const newAppt: Appointment = {
-      ...data,
-      id: `a${Date.now()}`,
-      status: "aguardando",
-    };
-    setAppointments((prev) => [...prev, newAppt]);
-    if (client) incrementVisits(client);
+  const handleBarberLogout = () => {
+    setBarber(null);
+    setView("client");
   };
 
-  const handleUpdateStatus = (id: string, status: Appointment["status"]) => {
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a)),
-    );
+  // Erros sobem para a tela de confirmação, que mostra a mensagem da API.
+  const handleBook = async (data: Omit<Appointment, "id" | "status">) => {
+    if (!client) return;
+    await criarAgendamento({
+      clienteId: client.id,
+      barbeiroId: data.barberId,
+      servicoId: data.serviceId,
+      dataHora: data.dateTime ?? toDateTime(localDate(new Date()), data.time),
+    });
+    await refreshAppointments();
   };
 
-  // Show login only for client view
-  if (view === "client" && !client) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
+  const handleUpdateStatus = async (id: string, status: Appointment["status"]) => {
+    if (status === "aguardando") return;
+    try {
+      await atualizarStatus(id, status);
+      setActionError(null);
+    } catch (err) {
+      setActionError(errorMessage(err));
+    }
+    await refreshAppointments();
+  };
+
+  const firstName = client?.name.split(" ")[0] ?? "";
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "#0a0a0a", fontFamily: "Inter, sans-serif" }}
-    >
-      {/* Notification banner */}
-      <AnimatePresence>
-        {notification && (
-          <motion.div
-            initial={{ y: -60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -60, opacity: 0 }}
-            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-3"
-            style={{ background: "#c9a84c" }}
-          >
-            <div className="flex items-center gap-3">
-              <Bell size={18} color="#0a0a0a" />
-              <span
-                style={{
-                  fontFamily: "Inter, sans-serif",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  color: "#0a0a0a",
-                }}
+    <MotionConfig reducedMotion="user">
+      {/* Show login only for client view */}
+      {view === "client" && !client ? (
+        <LoginScreen onLogin={handleLogin} onBarber={() => setView("barber")} />
+      ) : (
+        <div className="min-h-screen bg-paper text-ink">
+          {/* Notification banner */}
+          <AnimatePresence>
+            {notification && (
+              <motion.div
+                role="status"
+                initial={{ y: "-100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "-100%" }}
+                transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                className="pole-stripes fixed inset-x-0 top-0 z-50 p-2"
               >
-                {notification}
-              </span>
-            </div>
-            <button
-              onClick={() => setNotification(null)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#0a0a0a",
-                fontWeight: 700,
-                fontSize: 18,
-              }}
-            >
-              ×
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <header
-        style={{
-          borderBottom: "1px solid rgba(201,168,76,0.15)",
-          background: "#0a0a0a",
-        }}
-        className="sticky top-0 z-10"
-      >
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
-          {/* Logo */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div
-              className="w-9 h-9 rounded flex items-center justify-center"
-              style={{
-                background: "rgba(201,168,76,0.12)",
-                border: "1px solid rgba(201,168,76,0.4)",
-              }}
-            >
-              <Scissors size={18} color="#c9a84c" />
-            </div>
-            <div>
-              <span
-                style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 19,
-                  color: "#f0ece0",
-                  fontWeight: 600,
-                }}
-              >
-                Barber
-              </span>
-              <span
-                style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 19,
-                  color: "#c9a84c",
-                  fontWeight: 600,
-                }}
-              >
-                House
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 ml-auto">
-            {/* View toggle */}
-            <div
-              className="flex rounded-lg p-1"
-              style={{
-                background: "#141414",
-                border: "1px solid rgba(201,168,76,0.15)",
-              }}
-            >
-              <TabButton
-                active={view === "client"}
-                icon={<Scissors size={14} />}
-                label="Cliente"
-                onClick={() => setView("client")}
-              />
-              <TabButton
-                active={view === "barber"}
-                icon={<Users size={14} />}
-                label="Barbeiro"
-                onClick={() => setView("barber")}
-              />
-            </div>
-
-            {/* Profile chip */}
-            {client && view === "client" && (
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-lg"
-                style={{
-                  background: "#141414",
-                  border: "1px solid rgba(201,168,76,0.15)",
-                }}
-              >
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: "#c9a84c" }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#0a0a0a",
-                    }}
-                  >
-                    {client.name.charAt(0).toUpperCase()}
-                  </span>
+                <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-sm border-2 border-ink bg-paper py-2 pl-4 pr-2">
+                  <p className="font-display text-lg leading-tight sm:text-xl">{notification}</p>
+                  <button onClick={() => setNotification(null)} className="btn-text shrink-0">
+                    Fechar
+                  </button>
                 </div>
-                <span
-                  style={{
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: 13,
-                    color: "#f0ece0",
-                    fontWeight: 500,
-                  }}
-                >
-                  {client.name.split(" ")[0]}
-                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Header */}
+          <header className="sticky top-0 z-10 border-b-2 border-ink bg-paper">
+            <div className="pole-stripes h-1.5" aria-hidden="true" />
+            <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
+              <Wordmark />
+              <nav aria-label="Conta e modo" className="flex flex-wrap items-center justify-end gap-x-1 text-sm">
+                {client && view === "client" && (
+                  <>
+                    <span className="px-2 text-ink-soft">
+                      <span className="sr-only">Logado como </span>
+                      {firstName}
+                    </span>
+                    <button onClick={handleLogout} className="btn-text">
+                      Sair
+                    </button>
+                    <span aria-hidden="true" className="text-rule">
+                      |
+                    </span>
+                  </>
+                )}
+                {view === "client" ? (
+                  <button onClick={() => setView("barber")} className="btn-text text-navy">
+                    Sou barbeiro <span aria-hidden="true">→</span>
+                  </button>
+                ) : barber ? (
+                  <>
+                    <span className="px-2 text-ink-soft">
+                      <span className="sr-only">Barbeiro logado: </span>
+                      {barber.name.split(" ")[0]}
+                    </span>
+                    <button onClick={handleBarberLogout} className="btn-text">
+                      Sair
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => setView("client")} className="btn-text text-navy">
+                    <span aria-hidden="true">←</span> Voltar pro cliente
+                  </button>
+                )}
+              </nav>
+            </div>
+          </header>
+
+          {actionError && (
+            <div role="alert" className="border-b-2 border-ink bg-paper-2">
+              <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2">
+                <p className="font-medium text-pole-red">{actionError}</p>
+                <button onClick={() => setActionError(null)} className="btn-text shrink-0">
+                  Fechar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Content */}
+          <main className="pb-16">
+            {loadState === "loading" && (
+              <p role="status" className="px-4 py-16 text-center text-ink-soft">
+                Abrindo a barbearia…
+              </p>
+            )}
+
+            {loadState === "error" && (
+              <div role="alert" className="mx-auto max-w-md px-4 py-16 text-center">
+                <p className="font-display text-xl">A barbearia não abriu.</p>
+                <p className="mt-2 text-ink-soft">{loadError}</p>
                 <button
-                  onClick={handleLogout}
-                  title="Sair"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#888070",
-                    display: "flex",
-                    alignItems: "center",
+                  onClick={() => {
+                    setLoadState("loading");
+                    setReloadKey((k) => k + 1);
                   }}
+                  className="btn btn-ink mt-6"
                 >
-                  <LogOut size={13} />
+                  Tentar de novo
                 </button>
               </div>
             )}
-          </div>
+
+            {loadState === "ready" &&
+              (view === "client" ? (
+                <ClientView
+                  barbers={barbers}
+                  services={services}
+                  timeSlots={TIME_SLOTS}
+                  appointments={appointments}
+                  client={client!}
+                  onBook={handleBook}
+                />
+              ) : barber ? (
+                <BarberView
+                  barber={barber}
+                  appointments={appointments}
+                  onUpdateStatus={handleUpdateStatus}
+                />
+              ) : (
+                <BarberLogin onLogin={setBarber} onBack={() => setView("client")} />
+              ))}
+          </main>
         </div>
-      </header>
-
-      {/* Content */}
-      <main className="pb-12">
-        {view === "client" ? (
-          <ClientView
-            barbers={BARBERS}
-            services={SERVICES}
-            timeSlots={TIME_SLOTS}
-            appointments={appointments}
-            client={client!}
-            onBook={handleBook}
-          />
-        ) : (
-          <BarberView
-            barbers={BARBERS}
-            appointments={appointments}
-            onUpdateStatus={handleUpdateStatus}
-          />
-        )}
-      </main>
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 px-4 py-2 rounded transition-all"
-      style={{
-        background: active ? "rgba(201,168,76,0.15)" : "transparent",
-        border: active
-          ? "1px solid rgba(201,168,76,0.4)"
-          : "1px solid transparent",
-        color: active ? "#c9a84c" : "#888070",
-        fontFamily: "Inter, sans-serif",
-        fontSize: 13,
-        fontWeight: active ? 600 : 400,
-        cursor: "pointer",
-      }}
-    >
-      {icon}
-      {label}
-    </button>
+      )}
+    </MotionConfig>
   );
 }
