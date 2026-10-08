@@ -1,17 +1,20 @@
-import { useState } from "react";
-import { Scissors, User, Phone, ArrowRight, LogIn } from "lucide-react";
-import { motion } from "motion/react";
+import { useId, useState } from "react";
 import type { ClientProfile } from "../types";
 import { saveProfile } from "../auth";
+import { entrarOuCadastrar, errorMessage } from "../api";
+import { Wordmark } from "./Brand";
 
 interface LoginScreenProps {
   onLogin: (profile: ClientProfile) => void;
+  onBarber: () => void;
 }
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+export function LoginScreen({ onLogin, onBarber }: LoginScreenProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const errorId = useId();
 
   const handlePhone = (v: string) => {
     const digits = v.replace(/\D/g, "").slice(0, 11);
@@ -21,144 +24,113 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setPhone(formatted);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (name.trim().length < 2) { setError("Digite seu nome completo."); return; }
-    if (phone.replace(/\D/g, "").length < 10) { setError("Digite um telefone válido."); return; }
+    // A API exige DDD + número de 9 dígitos (11 no total).
+    if (phone.replace(/\D/g, "").length !== 11) { setError("Digite o telefone com DDD e 9 dígitos."); return; }
     setError("");
+    setSubmitting(true);
 
-    const profile: ClientProfile = {
-      id: `c_${Date.now()}`,
-      name: name.trim(),
-      phone: phone.trim(),
-      memberSince: new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
-      totalVisits: 0,
-    };
-    saveProfile(profile);
-    onLogin(profile);
+    try {
+      // Se o telefone já tem cadastro, entra com o nome cadastrado.
+      const profile = await entrarOuCadastrar(name.trim(), phone.replace(/\D/g, ""));
+      saveProfile(profile);
+      onLogin(profile);
+    } catch (err) {
+      setError(errorMessage(err));
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: "#0a0a0a" }}>
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-sm"
-      >
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-5"
-            style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.4)" }}
-          >
-            <Scissors size={26} color="#c9a84c" />
-          </div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, color: "#f0ece0", fontWeight: 700, lineHeight: 1.2 }}>
-            Barber<span style={{ color: "#c9a84c" }}>House</span>
-          </h1>
-          <p style={{ fontFamily: "Inter, sans-serif", color: "#888070", fontSize: 14, marginTop: 8 }}>
-            Identifique-se para agendar e acompanhar sua fila
-          </p>
-        </div>
+    <div className="flex min-h-screen flex-col bg-paper text-ink">
+      <div className="pole-stripes h-2" aria-hidden="true" />
 
-        {/* Card */}
-        <div
-          className="rounded-2xl p-7"
-          style={{ background: "#141414", border: "1px solid rgba(201,168,76,0.15)" }}
-        >
-          <div className="flex items-center gap-2 mb-6">
-            <LogIn size={16} color="#c9a84c" />
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 600, color: "#f0ece0" }}>
-              Entrar ou Cadastrar
-            </span>
+      <main className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-10 text-center">
+            <Wordmark size="lg" as="h1" />
+            <p className="mt-6 text-lg">Senta aí que a gente já te chama.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5 border-y-2 border-ink py-7">
             <Field
-              label="NOME COMPLETO"
-              icon={<User size={14} color="#888070" />}
+              label="Seu nome"
               value={name}
               onChange={(v) => { setName(v); setError(""); }}
               placeholder="João da Silva"
               type="text"
+              autoComplete="name"
+              errorId={error ? errorId : undefined}
             />
             <Field
-              label="TELEFONE"
-              icon={<Phone size={14} color="#888070" />}
+              label="Telefone com DDD"
               value={phone}
               onChange={(v) => { handlePhone(v); setError(""); }}
               placeholder="(11) 99999-9999"
               type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              errorId={error ? errorId : undefined}
             />
 
             {error && (
-              <p style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#f87171", marginTop: 2 }}>
+              <p id={errorId} role="alert" className="font-medium text-pole-red">
                 {error}
               </p>
             )}
 
-            <button
-              type="submit"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg mt-2 transition-all hover:opacity-90"
-              style={{
-                background: name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10 ? "#c9a84c" : "#1e1e1e",
-                color: name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10 ? "#0a0a0a" : "#555",
-                fontFamily: "Inter, sans-serif",
-                fontWeight: 700,
-                fontSize: 15,
-                border: "1px solid " + (name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 10 ? "#c9a84c" : "#333"),
-                cursor: "pointer",
-              }}
-            >
-              Entrar <ArrowRight size={16} />
+            <button type="submit" disabled={submitting} className="btn btn-ink w-full text-lg disabled:opacity-60">
+              {submitting ? "Entrando…" : "Entrar"}
             </button>
           </form>
-        </div>
 
-        <p style={{ fontFamily: "Inter, sans-serif", color: "#555", fontSize: 12, textAlign: "center", marginTop: 20 }}>
-          Novo por aqui? Basta preencher acima e seu perfil será criado automaticamente.
-        </p>
-      </motion.div>
+          <p className="mt-5 text-center text-sm text-ink-soft">
+            Primeira vez? É só preencher, a gente cria seu cadastro na hora.
+          </p>
+          <p className="mt-2 text-center">
+            <button onClick={onBarber} className="btn-text text-navy">
+              Sou barbeiro <span aria-hidden="true">→</span>
+            </button>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
 
 function Field({
-  label, icon, value, onChange, placeholder, type,
+  label, value, onChange, placeholder, type, autoComplete, inputMode, errorId,
 }: {
   label: string;
-  icon: React.ReactNode;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   type: string;
+  autoComplete: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  errorId?: string;
 }) {
-  const [focused, setFocused] = useState(false);
+  const id = useId();
   return (
     <div>
-      <label style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#888070", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+      <label htmlFor={id} className="mb-1.5 block">
         {label}
       </label>
-      <div
-        className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all"
-        style={{
-          background: "#1e1e1e",
-          border: focused ? "1px solid #c9a84c" : "1px solid rgba(201,168,76,0.2)",
-        }}
-      >
-        {icon}
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholder={placeholder}
-          className="flex-1 bg-transparent outline-none"
-          style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: "#f0ece0" }}
-        />
-      </div>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        inputMode={inputMode}
+        aria-describedby={errorId}
+        aria-invalid={errorId ? true : undefined}
+        className="min-h-12 w-full rounded-sm border-2 border-ink bg-ticket px-3 text-base text-ink placeholder:text-ink-soft focus:border-navy"
+      />
     </div>
   );
 }
