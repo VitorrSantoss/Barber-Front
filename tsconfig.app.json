@@ -22,5 +22,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  /* components/ui é um kit shadcn não usado, com dependências não instaladas */
+  "exclude": ["src/app/components/ui"]
 }
